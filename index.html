@@ -293,15 +293,30 @@
         let tg = window.Telegram.WebApp;
         let telegramUser = null;
 
-        // Expand the web app to full height
-        tg.expand();
+        // Wait for Telegram to be ready
+        function initTelegram() {
+            // Expand the web app to full height
+            tg.expand();
+            
+            // Try multiple ways to get user data
+            console.log('Telegram object:', tg);
+            console.log('InitDataUnsafe:', tg.initDataUnsafe);
+            
+            if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+                telegramUser = tg.initDataUnsafe.user;
+                console.log('User found:', telegramUser);
+                displayUserInfo(telegramUser);
+            } else {
+                console.log('User data not found');
+                showWarning();
+            }
+        }
 
-        // Get user info from Telegram
-        if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-            telegramUser = tg.initDataUnsafe.user;
-            displayUserInfo(telegramUser);
+        // Initialize when document is ready and Telegram is available
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initTelegram);
         } else {
-            showWarning();
+            initTelegram();
         }
 
         // Display user info
