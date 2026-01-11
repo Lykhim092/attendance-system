@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance Check-In</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .icon-circle {
+            width: 80px;
+            height: 80px;
+            background: #e0e7ff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+        }
+
+        .icon-circle svg {
+            width: 40px;
+            height: 40px;
+            color: #4f46e5;
+        }
+
+        h1 {
+            font-size: 28px;
+            color: #1f2937;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #6b7280;
+            font-size: 16px;
+        }
+
+        .status-container {
+            margin: 30px 0;
+        }
+
+        .btn-primary {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.3s;
+            box-shadow: 0 4px 6px rgba(79, 70, 229, 0.3);
+        }
+
+        .btn-primary:hover {
+            background: #4338ca;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(79, 70, 229, 0.4);
+        }
+
+        .btn-primary:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status-box {
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .status-success {
+            background: #ecfdf5;
+            border: 2px solid #6ee7b7;
+        }
+
+        .status-error {
+            background: #fef2f2;
+            border: 2px solid #fca5a5;
+        }
+
+        .status-loading {
+            background: #f3f4f6;
+            border: 2px solid #d1d5db;
+        }
+
+        .status-icon {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 20px;
+        }
+
+        .status-title {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .status-success .status-title { color: #065f46; }
+        .status-error .status-title { color: #991b1b; }
+        .status-loading .status-title { color: #374151; }
+
+        .status-message {
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        .status-success .status-message { color: #047857; }
+        .status-error .status-message { color: #dc2626; }
+        .status-loading .status-message { color: #6b7280; }
+
+        .distance-info {
+            font-size: 14px;
+            margin-top: 15px;
+            font-weight: 600;
+        }
+
+        .btn-secondary {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        .btn-secondary:hover {
+            background: #059669;
+        }
+
+        .btn-error {
+            background: #ef4444;
+        }
+
+        .btn-error:hover {
+            background: #dc2626;
+        }
+
+        .info-box {
+            background: #f9fafb;
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 20px;
+        }
+
+        .info-title {
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 10px;
+        }
+
+        .info-item {
+            font-size: 14px;
+            color: #6b7280;
+            margin: 5px 0;
+        }
+
+        .spinner {
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #4f46e5;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .note {
+            font-size: 14px;
+            color: #6b7280;
+            text-align: center;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="icon-circle">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+            </div>
+            <h1>Attendance Check-In</h1>
+            <p class="subtitle">Scan QR code to record your attendance</p>
+        </div>
+
+        <div class="status-container" id="statusContainer">
+            <button class="btn-primary" id="checkInBtn" onclick="handleCheckIn()">
+                📍 Check In Now
+            </button>
+            <p class="note">Make sure you're at the office location</p>
+        </div>
+
+        <div class="info-box">
+            <div class="info-title">Office Location</div>
+            <div class="info-item">📍 Lat: 11.595302, Lon: 104.930022</div>
+            <div class="info-item">📏 Check-in radius: 100m</div>
+        </div>
+    </div>
+
+    <script>
+        // ===== CONFIGURATION =====
+        const CONFIG = {
+            OFFICE_LAT: 11.595302,
+            OFFICE_LON: 104.930022,
+            OFFICE_RADIUS: 100, // meters
+            BOT_TOKEN: '8353969532:AAGw5-cskfHTRsj3kyl7vZU04DxHWU2S3qk', // Replace with your bot token
+            ATTENDANCE_GROUP_ID: -4753476631,
+            NOTIFICATION_GROUP_ID: -5289434770
+        };
+
+        // Calculate distance between two coordinates
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371000; // Earth's radius in meters
+            const phi1 = lat1 * Math.PI / 180;
+            const phi2 = lat2 * Math.PI / 180;
+            const deltaPhi = (lat2 - lat1) * Math.PI / 180;
+            const deltaLambda = (lon2 - lon1) * Math.PI / 180;
+
+            const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+                      Math.cos(phi1) * Math.cos(phi2) *
+                      Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+            return R * c;
+        }
+
+        // Send message to Telegram
+        async function sendToTelegram(chatId, text) {
+            try {
+                const response = await fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/sendMessage`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        chat_id: chatId,
+                        text: text,
+                        parse_mode: 'HTML'
+                    })
+                });
+                return await response.json();
+            } catch (error) {
+                console.error('Telegram API error:', error);
+                return null;
+            }
+        }
+
+        // Show loading state
+        function showLoading(message) {
+            const container = document.getElementById('statusContainer');
+            container.innerHTML = `
+                <div class="status-box status-loading">
+                    <div class="spinner"></div>
+                    <div class="status-title">Processing...</div>
+                    <div class="status-message">${message}</div>
+                </div>
+            `;
+        }
+
+        // Show success state
+        function showSuccess(message, distance) {
+            const container = document.getElementById('statusContainer');
+            container.innerHTML = `
+                <div class="status-box status-success">
+                    <div class="status-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="#10b981" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <div class="status-title">Success!</div>
+                    <div class="status-message">${message}</div>
+                    <div class="distance-info">Distance from office: ${distance.toFixed(1)}m</div>
+                    <button class="btn-secondary" onclick="resetForm()">Done</button>
+                </div>
+            `;
+        }
+
+        // Show error state
+        function showError(message, distance = null) {
+            const container = document.getElementById('statusContainer');
+            const distanceHtml = distance !== null ? 
+                `<div class="distance-info">You are ${distance.toFixed(1)}m from the office</div>` : '';
+            
+            container.innerHTML = `
+                <div class="status-box status-error">
+                    <div class="status-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="#ef4444" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <div class="status-title">Check-in Failed</div>
+                    <div class="status-message">${message}</div>
+                    ${distanceHtml}
+                    <button class="btn-secondary btn-error" onclick="resetForm()">Try Again</button>
+                </div>
+            `;
+        }
+
+        // Reset form
+        function resetForm() {
+            const container = document.getElementById('statusContainer');
+            container.innerHTML = `
+                <button class="btn-primary" id="checkInBtn" onclick="handleCheckIn()">
+                    📍 Check In Now
+                </button>
+                <p class="note">Make sure you're at the office location</p>
+            `;
+        }
+
+        // Main check-in function
+        async function handleCheckIn() {
+            showLoading('Getting your location...');
+
+            // Get user info from URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            const telegramUserId = urlParams.get('user_id') || 'Unknown';
+            const telegramUsername = urlParams.get('username');
+            const telegramFirstName = urlParams.get('first_name') || 'Employee';
+            const telegramLastName = urlParams.get('last_name') || '';
+
+            if (!navigator.geolocation) {
+                showError('Geolocation is not supported by your browser');
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    const userLat = position.coords.latitude;
+                    const userLon = position.coords.longitude;
+                    const accuracy = position.coords.accuracy;
+
+                    const distance = calculateDistance(
+                        userLat, userLon,
+                        CONFIG.OFFICE_LAT, CONFIG.OFFICE_LON
+                    );
+
+                    const now = new Date();
+                    const checkInTime = now.toLocaleString('en-US', { 
+                        timeZone: 'Asia/Phnom_Penh',
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    });
+
+                    const userName = `${telegramFirstName} ${telegramLastName}`.trim();
+                    const userIdentifier = telegramUsername ? `@${telegramUsername}` : userName;
+
+                    if (distance <= CONFIG.OFFICE_RADIUS) {
+                        // SUCCESS
+                        showSuccess(
+                            `Attendance recorded! You are ${distance.toFixed(1)}m from the office.`,
+                            distance
+                        );
+
+                        // Send notifications
+                        await sendToTelegram(
+                            CONFIG.NOTIFICATION_GROUP_ID,
+                            `🔔 ${userIdentifier} is checking in...`
+                        );
+
+                        await sendToTelegram(
+                            CONFIG.ATTENDANCE_GROUP_ID,
+                            `✅ <b>ATTENDANCE CONFIRMED</b>\n\n` +
+                            `👤 Employee: ${userName}\n` +
+                            `🆔 Username: ${userIdentifier}\n` +
+                            `📍 Distance: ${distance.toFixed(1)}m from office\n` +
+                            `🕐 Check-in time: ${checkInTime}\n` +
+                            `📱 User ID: ${telegramUserId}\n` +
+                            `🎯 GPS Accuracy: ${accuracy.toFixed(1)}m`
+                        );
+                    } else {
+                        // FAILED
+                        showError(
+                            `You must be within ${CONFIG.OFFICE_RADIUS}m to check in.`,
+                            distance
+                        );
+                    }
+                },
+                (error) => {
+                    let errorMsg = 'Unable to get your location. ';
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMsg += 'Please enable location permissions.';
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMsg += 'Location information unavailable.';
+                            break;
+                        case error.TIMEOUT:
+                            errorMsg += 'Location request timed out.';
+                            break;
+                        default:
+                            errorMsg += 'An unknown error occurred.';
+                    }
+                    showError(errorMsg);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                }
+            );
+        }
+    </script>
+</body>
+</html>
