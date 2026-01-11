@@ -133,6 +133,8 @@
         .status-message {
             font-size: 16px;
             margin-bottom: 10px;
+            line-height: 1.6;
+            text-align: left;
         }
 
         .status-success .status-message { color: #047857; }
@@ -322,6 +324,9 @@
             const distanceHtml = distance !== null ? 
                 `<div class="distance-info">You are ${distance.toFixed(1)}m from the office</div>` : '';
             
+            // Convert newlines to HTML breaks for better formatting
+            const formattedMessage = message.replace(/\n/g, '<br>');
+            
             container.innerHTML = `
                 <div class="status-box status-error">
                     <div class="status-icon">
@@ -330,7 +335,7 @@
                         </svg>
                     </div>
                     <div class="status-title">Check-in Failed</div>
-                    <div class="status-message">${message}</div>
+                    <div class="status-message">${formattedMessage}</div>
                     ${distanceHtml}
                     <button class="btn-secondary btn-error" onclick="resetForm()">Try Again</button>
                 </div>
@@ -348,10 +353,22 @@
             `;
         }
 
+        // Check and request location permission
+        async function checkLocationPermission() {
+            if (!navigator.permissions) {
+                return 'prompt'; // Assume we need to prompt
+            }
+
+            try {
+                const result = await navigator.permissions.query({ name: 'geolocation' });
+                return result.state; // 'granted', 'denied', or 'prompt'
+            } catch (error) {
+                return 'prompt';
+            }
+        }
+
         // Main check-in function
         async function handleCheckIn() {
-            showLoading('Getting your location...');
-
             // Get user info from URL parameters
             const urlParams = new URLSearchParams(window.location.search);
             const telegramUserId = urlParams.get('user_id') || 'Unknown';
@@ -359,11 +376,23 @@
             const telegramFirstName = urlParams.get('first_name') || 'Employee';
             const telegramLastName = urlParams.get('last_name') || '';
 
+            // Check if geolocation is supported
             if (!navigator.geolocation) {
-                showError('Geolocation is not supported by your browser');
+                showError('❌ Geolocation is not supported by your browser. Please use a modern browser like Chrome or Safari.');
                 return;
             }
 
+            // Check permission status
+            const permissionStatus = await checkLocationPermission();
+            
+            if (permissionStatus === 'denied') {
+                showError('❌ Location permission denied. Please enable location access in your browser settings and reload this page.');
+                return;
+            }
+
+            showLoading('Requesting location permission...');
+
+            // Request location with high accuracy
             navigator.geolocation.getCurrentPosition(
                 async (position) => {
                     const userLat = position.coords.latitude;
@@ -421,25 +450,35 @@
                     }
                 },
                 (error) => {
-                    let errorMsg = 'Unable to get your location. ';
+                    console.error('Geolocation error:', error);
+                    let errorMsg = '❌ Unable to get your location. ';
+                    
                     switch(error.code) {
-                        case error.PERMISSION_DENIED:
-                            errorMsg += 'Please enable location permissions.';
+                        case 1: // PERMISSION_DENIED
+                            errorMsg = '❌ Location permission denied.\n\n';
+                            errorMsg += '📱 To enable location:\n';
+                            errorMsg += '• iPhone: Settings → Safari → Location → Allow\n';
+                            errorMsg += '• Android: Settings → Apps → Browser → Permissions → Location';
                             break;
-                        case error.POSITION_UNAVAILABLE:
-                            errorMsg += 'Location information unavailable.';
+                        case 2: // POSITION_UNAVAILABLE
+                            errorMsg = '❌ Location information unavailable.\n\n';
+                            errorMsg += 'Please make sure:\n';
+                            errorMsg += '• GPS is turned on\n';
+                            errorMsg += '• You have internet connection\n';
+                            errorMsg += '• You are not in airplane mode';
                             break;
-                        case error.TIMEOUT:
-                            errorMsg += 'Location request timed out.';
+                        case 3: // TIMEOUT
+                            errorMsg = '❌ Location request timed out.\n\n';
+                            errorMsg += 'Please try again. Make sure you have a good GPS signal.';
                             break;
                         default:
-                            errorMsg += 'An unknown error occurred.';
+                            errorMsg += 'Error code: ' + error.code + '\n' + error.message;
                     }
                     showError(errorMsg);
                 },
                 {
                     enableHighAccuracy: true,
-                    timeout: 10000,
+                    timeout: 15000, // Increased timeout to 15 seconds
                     maximumAge: 0
                 }
             );
