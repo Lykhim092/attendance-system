@@ -301,7 +301,7 @@
         const CONFIG = {
             OFFICE_LAT: 11.595302,
             OFFICE_LON: 104.930022,
-            OFFICE_RADIUS: 100, // meters
+            OFFICE_RADIUS: 50, // meters
             BOT_TOKEN: '8353969532:AAGw5-cskfHTRsj3kyl7vZU04DxHWU2S3qk', // Replace with your bot token
             ATTENDANCE_GROUP_ID: -4753476631,
             NOTIFICATION_GROUP_ID: -5289434770
@@ -583,6 +583,13 @@
                             `You must be within ${CONFIG.OFFICE_RADIUS}m to check in.`,
                             distance
                         );
+
+                        // Send notification about failed check-in attempt
+                        await sendToTelegram(
+                            CONFIG.NOTIFICATION_GROUP_ID,
+                            `⚠️ ${userIdentifier} is trying to check in ${distance.toFixed(1)}m away from office`
+                        );
+
                         tg.showAlert('❌ Check-in failed! You are too far from the office.');
                     }
                 },
@@ -692,6 +699,13 @@
                             `You must be within ${CONFIG.OFFICE_RADIUS}m to check out.`,
                             distance
                         );
+
+                        // Send notification about failed check-out attempt
+                        await sendToTelegram(
+                            CONFIG.NOTIFICATION_GROUP_ID,
+                            `⚠️ ${userIdentifier} is trying to check out ${distance.toFixed(1)}m away from office`
+                        );
+
                         tg.showAlert('❌ Check-out failed! You are too far from the office.');
                     }
                 },
