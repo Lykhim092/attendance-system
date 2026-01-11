@@ -290,33 +290,40 @@
         };
 
         // Initialize Telegram Web App
-        let tg = window.Telegram.WebApp;
+        let tg = window.Telegram?.WebApp;
         let telegramUser = null;
 
-        // Wait for Telegram to be ready
-        function initTelegram() {
+        // Wait for Telegram WebApp to fully initialize
+        function initTelegramApp() {
+            if (!tg) {
+                console.error('Telegram WebApp not available');
+                showWarning();
+                return;
+            }
+
+            console.log('Telegram WebApp detected');
+            console.log('Init data:', tg.initData);
+            console.log('Init data unsafe:', tg.initDataUnsafe);
+
             // Expand the web app to full height
             tg.expand();
-            
-            // Try multiple ways to get user data
-            console.log('Telegram object:', tg);
-            console.log('InitDataUnsafe:', tg.initDataUnsafe);
-            
+
+            // Try to get user info from different sources
             if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
                 telegramUser = tg.initDataUnsafe.user;
                 console.log('User found:', telegramUser);
                 displayUserInfo(telegramUser);
             } else {
-                console.log('User data not found');
+                console.error('No user data in initDataUnsafe');
                 showWarning();
             }
         }
 
-        // Initialize when document is ready and Telegram is available
+        // Initialize when page loads
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initTelegram);
+            document.addEventListener('DOMContentLoaded', initTelegramApp);
         } else {
-            initTelegram();
+            initTelegramApp();
         }
 
         // Display user info
@@ -340,11 +347,22 @@
             const container = document.getElementById('userInfoContainer');
             container.innerHTML = `
                 <div class="warning-box">
-                    <p><strong>⚠️ Important:</strong></p>
-                    <p>This page must be opened through your Telegram bot for attendance to work properly.</p>
-                    <p>Please open your bot and click the check-in button.</p>
+                    <p><strong>⚠️ Debug Info:</strong></p>
+                    <p>Telegram WebApp available: ${!!window.Telegram?.WebApp}</p>
+                    <p>Init data: ${window.Telegram?.WebApp?.initData ? 'Yes' : 'No'}</p>
+                    <p><strong>Solution:</strong></p>
+                    <p>1. Make sure you opened this via the bot button</p>
+                    <p>2. Try closing and reopening the bot</p>
+                    <p>3. Contact admin if issue persists</p>
                 </div>
             `;
+            
+            // Disable check-in button
+            const checkInBtn = document.getElementById('checkInBtn');
+            if (checkInBtn) {
+                checkInBtn.disabled = true;
+                checkInBtn.style.background = '#9ca3af';
+            }
         }
 
         // Calculate distance between two coordinates
