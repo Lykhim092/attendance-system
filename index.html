@@ -115,6 +115,47 @@
             transform: none;
         }
 
+        .btn-secondary {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        .btn-secondary:hover {
+            background: #059669;
+        }
+
+        .btn-warning {
+            background: #f59e0b;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+            width: 100%;
+        }
+
+        .btn-warning:hover {
+            background: #d97706;
+        }
+
+        .btn-error {
+            background: #ef4444;
+        }
+
+        .btn-error:hover {
+            background: #dc2626;
+        }
+
         .status-box {
             padding: 30px;
             border-radius: 12px;
@@ -166,30 +207,6 @@
             font-size: 14px;
             margin-top: 15px;
             font-weight: 600;
-        }
-
-        .btn-secondary {
-            background: #10b981;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            margin-top: 20px;
-        }
-
-        .btn-secondary:hover {
-            background: #059669;
-        }
-
-        .btn-error {
-            background: #ef4444;
-        }
-
-        .btn-error:hover {
-            background: #dc2626;
         }
 
         .info-box {
@@ -267,6 +284,9 @@
         <div class="status-container" id="statusContainer">
             <button class="btn-primary" id="checkInBtn" onclick="handleCheckIn()">
                 📍 Check In Now
+            </button>
+            <button class="btn-warning" id="checkOutBtn" onclick="handleCheckOut()">
+                🚪 Check Out Now
             </button>
             <p class="note">Make sure you're at the office location</p>
         </div>
@@ -415,8 +435,9 @@
         }
 
         // Show success state
-        function showSuccess(message, distance) {
+        function showSuccess(userName, timeFormatted, isCheckOut = false) {
             const container = document.getElementById('statusContainer');
+            const action = isCheckOut ? 'Check Out' : 'Check in';
             container.innerHTML = `
                 <div class="status-box status-success">
                     <div class="status-icon">
@@ -424,9 +445,8 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                     </div>
-                    <div class="status-title">Success!</div>
-                    <div class="status-message">${message}</div>
-                    <div class="distance-info">Distance from office: ${distance.toFixed(1)}m</div>
+                    <div class="status-title">✅ ${userName} ${action}</div>
+                    <div class="status-message">Time: ${timeFormatted}</div>
                     <button class="btn-secondary" onclick="tg.close()">Close</button>
                 </div>
             `;
@@ -461,6 +481,9 @@
             container.innerHTML = `
                 <button class="btn-primary" id="checkInBtn" onclick="handleCheckIn()">
                     📍 Check In Now
+                </button>
+                <button class="btn-warning" id="checkOutBtn" onclick="handleCheckOut()">
+                    🚪 Check Out Now
                 </button>
                 <p class="note">Make sure you're at the office location</p>
             `;
@@ -531,11 +554,16 @@
                     const userIdentifier = telegramUser.username ? `@${telegramUser.username}` : userName;
 
                     if (distance <= CONFIG.OFFICE_RADIUS) {
+                        // Format time as HH/MM (AM/PM)
+                        const timeFormatted = now.toLocaleString('en-US', { 
+                            timeZone: 'Asia/Phnom_Penh',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true
+                        });
+
                         // SUCCESS
-                        showSuccess(
-                            `Attendance recorded! You are ${distance.toFixed(1)}m from the office.`,
-                            distance
-                        );
+                        showSuccess(userName, timeFormatted, false);
 
                         // Send notifications
                         await sendToTelegram(
@@ -545,13 +573,8 @@
 
                         await sendToTelegram(
                             CONFIG.ATTENDANCE_GROUP_ID,
-                            `✅ <b>ATTENDANCE CONFIRMED</b>\n\n` +
-                            `👤 Employee: ${userName}\n` +
-                            `🆔 Username: ${userIdentifier}\n` +
-                            `📍 Distance: ${distance.toFixed(1)}m from office\n` +
-                            `🕐 Check-in time: ${checkInTime}\n` +
-                            `📱 Telegram ID: ${telegramUser.id}\n` +
-                            `🎯 GPS Accuracy: ${accuracy.toFixed(1)}m`
+                            `✅ <b>${userName} Check in</b>\n` +
+                            `Time: ${timeFormatted}`
                         );
 
                         // Notify the bot to send confirmation to user
@@ -563,6 +586,115 @@
                             distance
                         );
                         tg.showAlert('❌ Check-in failed! You are too far from the office.');
+                    }
+                },
+                (error) => {
+                    console.error('Geolocation error:', error);
+                    let errorMsg = '❌ Unable to get your location. ';
+                    
+                    switch(error.code) {
+                        case 1:
+                            errorMsg = '❌ Location permission denied.\n\n';
+                            errorMsg += '📱 To enable location:\n';
+                            errorMsg += '• iPhone: Settings → Safari → Location → Allow\n';
+                            errorMsg += '• Android: Settings → Apps → Browser → Permissions → Location';
+                            break;
+                        case 2:
+                            errorMsg = '❌ Location information unavailable.\n\n';
+                            errorMsg += 'Please make sure:\n';
+                            errorMsg += '• GPS is turned on\n';
+                            errorMsg += '• You have internet connection\n';
+                            errorMsg += '• You are not in airplane mode';
+                            break;
+                        case 3:
+                            errorMsg = '❌ Location request timed out.\n\n';
+                            errorMsg += 'Please try again. Make sure you have a good GPS signal.';
+                            break;
+                        default:
+                            errorMsg += 'Error code: ' + error.code + '\n' + error.message;
+                    }
+                    showError(errorMsg);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 15000,
+                    maximumAge: 0
+                }
+            );
+        }
+
+        // Check out function
+        async function handleCheckOut() {
+            // Check if user info is available
+            if (!telegramUser) {
+                showError('⚠️ Cannot identify user. Please open this page through your Telegram bot.');
+                return;
+            }
+
+            // Check if geolocation is supported
+            if (!navigator.geolocation) {
+                showError('❌ Geolocation is not supported by your browser. Please use a modern browser like Chrome or Safari.');
+                return;
+            }
+
+            // Check permission status
+            const permissionStatus = await checkLocationPermission();
+            
+            if (permissionStatus === 'denied') {
+                showError('❌ Location permission denied. Please enable location access in your browser settings and reload this page.');
+                return;
+            }
+
+            showLoading('Requesting location permission...');
+
+            // Request location with high accuracy
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    const userLat = position.coords.latitude;
+                    const userLon = position.coords.longitude;
+
+                    const distance = calculateDistance(
+                        userLat, userLon,
+                        CONFIG.OFFICE_LAT, CONFIG.OFFICE_LON
+                    );
+
+                    const now = new Date();
+                    const userName = `${telegramUser.first_name || ''} ${telegramUser.last_name || ''}`.trim();
+                    const userIdentifier = telegramUser.username ? `@${telegramUser.username}` : userName;
+
+                    if (distance <= CONFIG.OFFICE_RADIUS) {
+                        // Format time as HH/MM (AM/PM)
+                        const timeFormatted = now.toLocaleString('en-US', { 
+                            timeZone: 'Asia/Phnom_Penh',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true
+                        });
+
+                        // SUCCESS
+                        showSuccess(userName, timeFormatted, true);
+
+                        // Send notifications
+                        await sendToTelegram(
+                            CONFIG.NOTIFICATION_GROUP_ID,
+                            `🔔 ${userIdentifier} is checking out...`
+                        );
+
+                        await sendToTelegram(
+                            CONFIG.ATTENDANCE_GROUP_ID,
+                            `⚠️ <b>${userName} Check Out</b>\n` +
+                            `Time: ${timeFormatted}`
+                        );
+
+                        // Notify the bot to send confirmation to user
+                        tg.showAlert('✅ Check out recorded successfully!');
+                    } else {
+                        // FAILED
+                        showError(
+                            `You must be within ${CONFIG.OFFICE_RADIUS}m to check out.`,
+                            distance
+                        );
+                        tg.showAlert('❌ Check-out failed! You are too far from the office.');
                     }
                 },
                 (error) => {
