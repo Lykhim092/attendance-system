@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Attendance Check-In</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         * {
             margin: 0;
@@ -61,6 +62,27 @@
         .subtitle {
             color: #6b7280;
             font-size: 16px;
+        }
+
+        .user-info {
+            background: #f0f9ff;
+            border: 2px solid #bae6fd;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .user-info-title {
+            font-weight: 700;
+            color: #0c4a6e;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .user-info-item {
+            font-size: 14px;
+            color: #075985;
+            margin: 5px 0;
         }
 
         .status-container {
@@ -134,7 +156,6 @@
             font-size: 16px;
             margin-bottom: 10px;
             line-height: 1.6;
-            text-align: left;
         }
 
         .status-success .status-message { color: #047857; }
@@ -211,6 +232,20 @@
             text-align: center;
             margin-top: 15px;
         }
+
+        .warning-box {
+            background: #fef3c7;
+            border: 2px solid #fbbf24;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .warning-box p {
+            color: #92400e;
+            font-size: 14px;
+            margin: 5px 0;
+        }
     </style>
 </head>
 <body>
@@ -223,8 +258,11 @@
                 </svg>
             </div>
             <h1>Attendance Check-In</h1>
-            <p class="subtitle">Scan QR code to record your attendance</p>
+            <p class="subtitle">Verify your location to check in</p>
         </div>
+
+        <!-- User Info Display -->
+        <div id="userInfoContainer"></div>
 
         <div class="status-container" id="statusContainer">
             <button class="btn-primary" id="checkInBtn" onclick="handleCheckIn()">
@@ -250,6 +288,49 @@
             ATTENDANCE_GROUP_ID: -4753476631,
             NOTIFICATION_GROUP_ID: -5289434770
         };
+
+        // Initialize Telegram Web App
+        let tg = window.Telegram.WebApp;
+        let telegramUser = null;
+
+        // Expand the web app to full height
+        tg.expand();
+
+        // Get user info from Telegram
+        if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+            telegramUser = tg.initDataUnsafe.user;
+            displayUserInfo(telegramUser);
+        } else {
+            showWarning();
+        }
+
+        // Display user info
+        function displayUserInfo(user) {
+            const container = document.getElementById('userInfoContainer');
+            const username = user.username ? `@${user.username}` : 'No username';
+            const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+            
+            container.innerHTML = `
+                <div class="user-info">
+                    <div class="user-info-title">👤 Telegram Account</div>
+                    <div class="user-info-item">Name: ${fullName}</div>
+                    <div class="user-info-item">Username: ${username}</div>
+                    <div class="user-info-item">User ID: ${user.id}</div>
+                </div>
+            `;
+        }
+
+        // Show warning if not opened via Telegram
+        function showWarning() {
+            const container = document.getElementById('userInfoContainer');
+            container.innerHTML = `
+                <div class="warning-box">
+                    <p><strong>⚠️ Important:</strong></p>
+                    <p>This page must be opened through your Telegram bot for attendance to work properly.</p>
+                    <p>Please open your bot and click the check-in button.</p>
+                </div>
+            `;
+        }
 
         // Calculate distance between two coordinates
         function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -313,7 +394,7 @@
                     <div class="status-title">Success!</div>
                     <div class="status-message">${message}</div>
                     <div class="distance-info">Distance from office: ${distance.toFixed(1)}m</div>
-                    <button class="btn-secondary" onclick="resetForm()">Done</button>
+                    <button class="btn-secondary" onclick="tg.close()">Close</button>
                 </div>
             `;
         }
@@ -324,7 +405,6 @@
             const distanceHtml = distance !== null ? 
                 `<div class="distance-info">You are ${distance.toFixed(1)}m from the office</div>` : '';
             
-            // Convert newlines to HTML breaks for better formatting
             const formattedMessage = message.replace(/\n/g, '<br>');
             
             container.innerHTML = `
@@ -356,12 +436,12 @@
         // Check and request location permission
         async function checkLocationPermission() {
             if (!navigator.permissions) {
-                return 'prompt'; // Assume we need to prompt
+                return 'prompt';
             }
 
             try {
                 const result = await navigator.permissions.query({ name: 'geolocation' });
-                return result.state; // 'granted', 'denied', or 'prompt'
+                return result.state;
             } catch (error) {
                 return 'prompt';
             }
@@ -369,12 +449,11 @@
 
         // Main check-in function
         async function handleCheckIn() {
-            // Get user info from URL parameters
-            const urlParams = new URLSearchParams(window.location.search);
-            const telegramUserId = urlParams.get('user_id') || 'Unknown';
-            const telegramUsername = urlParams.get('username');
-            const telegramFirstName = urlParams.get('first_name') || 'Employee';
-            const telegramLastName = urlParams.get('last_name') || '';
+            // Check if user info is available
+            if (!telegramUser) {
+                showError('⚠️ Cannot identify user. Please open this page through your Telegram bot.');
+                return;
+            }
 
             // Check if geolocation is supported
             if (!navigator.geolocation) {
@@ -415,8 +494,8 @@
                         second: '2-digit'
                     });
 
-                    const userName = `${telegramFirstName} ${telegramLastName}`.trim();
-                    const userIdentifier = telegramUsername ? `@${telegramUsername}` : userName;
+                    const userName = `${telegramUser.first_name || ''} ${telegramUser.last_name || ''}`.trim();
+                    const userIdentifier = telegramUser.username ? `@${telegramUser.username}` : userName;
 
                     if (distance <= CONFIG.OFFICE_RADIUS) {
                         // SUCCESS
@@ -438,15 +517,19 @@
                             `🆔 Username: ${userIdentifier}\n` +
                             `📍 Distance: ${distance.toFixed(1)}m from office\n` +
                             `🕐 Check-in time: ${checkInTime}\n` +
-                            `📱 User ID: ${telegramUserId}\n` +
+                            `📱 Telegram ID: ${telegramUser.id}\n` +
                             `🎯 GPS Accuracy: ${accuracy.toFixed(1)}m`
                         );
+
+                        // Notify the bot to send confirmation to user
+                        tg.showAlert('✅ Attendance recorded successfully!');
                     } else {
                         // FAILED
                         showError(
                             `You must be within ${CONFIG.OFFICE_RADIUS}m to check in.`,
                             distance
                         );
+                        tg.showAlert('❌ Check-in failed! You are too far from the office.');
                     }
                 },
                 (error) => {
@@ -454,20 +537,20 @@
                     let errorMsg = '❌ Unable to get your location. ';
                     
                     switch(error.code) {
-                        case 1: // PERMISSION_DENIED
+                        case 1:
                             errorMsg = '❌ Location permission denied.\n\n';
                             errorMsg += '📱 To enable location:\n';
                             errorMsg += '• iPhone: Settings → Safari → Location → Allow\n';
                             errorMsg += '• Android: Settings → Apps → Browser → Permissions → Location';
                             break;
-                        case 2: // POSITION_UNAVAILABLE
+                        case 2:
                             errorMsg = '❌ Location information unavailable.\n\n';
                             errorMsg += 'Please make sure:\n';
                             errorMsg += '• GPS is turned on\n';
                             errorMsg += '• You have internet connection\n';
                             errorMsg += '• You are not in airplane mode';
                             break;
-                        case 3: // TIMEOUT
+                        case 3:
                             errorMsg = '❌ Location request timed out.\n\n';
                             errorMsg += 'Please try again. Make sure you have a good GPS signal.';
                             break;
@@ -478,7 +561,7 @@
                 },
                 {
                     enableHighAccuracy: true,
-                    timeout: 15000, // Increased timeout to 15 seconds
+                    timeout: 15000,
                     maximumAge: 0
                 }
             );
