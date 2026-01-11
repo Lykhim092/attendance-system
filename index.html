@@ -101,6 +101,7 @@
             width: 100%;
             transition: all 0.3s;
             box-shadow: 0 4px 6px rgba(79, 70, 229, 0.3);
+            margin-bottom: 12px;
         }
 
         .btn-primary:hover {
@@ -135,17 +136,20 @@
             background: #f59e0b;
             color: white;
             border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-size: 16px;
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-size: 18px;
             font-weight: 600;
             cursor: pointer;
-            margin-top: 10px;
             width: 100%;
+            transition: all 0.3s;
+            box-shadow: 0 4px 6px rgba(245, 158, 11, 0.3);
         }
 
         .btn-warning:hover {
             background: #d97706;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(245, 158, 11, 0.4);
         }
 
         .btn-error {
@@ -289,12 +293,6 @@
                 🚪 Check Out Now
             </button>
             <p class="note">Make sure you're at the office location</p>
-        </div>
-
-        <div class="info-box">
-            <div class="info-title">Office Location</div>
-            <div class="info-item">📍 Lat: 11.595302, Lon: 104.930022</div>
-            <div class="info-item">📏 Check-in radius: 100m</div>
         </div>
     </div>
 
@@ -573,7 +571,7 @@
 
                         await sendToTelegram(
                             CONFIG.ATTENDANCE_GROUP_ID,
-                            `✅ <b>${userName} Check in</b>\n` +
+                            `✅ <b>${userName}</b> Check in\n` +
                             `Time: ${timeFormatted}`
                         );
 
@@ -682,7 +680,7 @@
 
                         await sendToTelegram(
                             CONFIG.ATTENDANCE_GROUP_ID,
-                            `⚠️ <b>${userName} Check Out</b>\n` +
+                            `⚠️ <b>${userName}</b> Check Out\n` +
                             `Time: ${timeFormatted}`
                         );
 
