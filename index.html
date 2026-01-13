@@ -298,21 +298,59 @@
 
     <script>
         // ===== CONFIGURATION =====
-        const CONFIG = {
-            OFFICE_LAT: 11.595302,
-            OFFICE_LON: 104.930022,
+        const DEFAULT_CONFIG = {
+            BOT_TOKEN: '8353969532:AAGw5-cskfHTRsj3kyl7vZU04DxHWU2S3qk',
             OFFICE_RADIUS: 50, // meters
-            BOT_TOKEN: '8353969532:AAGw5-cskfHTRsj3kyl7vZU04DxHWU2S3qk', // Replace with your bot token
-            ATTENDANCE_GROUP_ID: -4753476631,
-            NOTIFICATION_GROUP_ID: -5289434770
         };
+
+        let CONFIG = { ...DEFAULT_CONFIG };
+
+        // Parse URL parameters to get company name
+        function getCompanyFromURL() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('company');
+        }
+
+        // Fetch company data from server
+        async function loadCompanyConfig() {
+            const companyName = getCompanyFromURL();
+            if (!companyName) {
+                console.error('No company specified in URL');
+                return false;
+            }
+
+            try {
+                // For now, we'll store company config in localStorage or pass it through the bot
+                // In a real scenario, you'd fetch this from your backend
+                const storedCompanies = localStorage.getItem('companies_config');
+                if (storedCompanies) {
+                    const companies = JSON.parse(storedCompanies);
+                    const company = companies[companyName];
+                    if (company) {
+                        CONFIG = {
+                            ...CONFIG,
+                            OFFICE_LAT: company.latitude,
+                            OFFICE_LON: company.longitude,
+                            ATTENDANCE_GROUP_ID: company.attendance_group_id,
+                            NOTIFICATION_GROUP_ID: company.notification_group_id,
+                            COMPANY_NAME: companyName
+                        };
+                        return true;
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading company config:', error);
+            }
+
+            return false;
+        }
 
         // Initialize Telegram Web App
         let tg = window.Telegram?.WebApp;
         let telegramUser = null;
 
         // Wait for Telegram WebApp to fully initialize
-        function initTelegramApp() {
+        async function initTelegramApp() {
             if (!tg) {
                 console.error('Telegram WebApp not available');
                 showWarning();
@@ -326,10 +364,18 @@
             // Expand the web app to full height
             tg.expand();
 
+            // Load company configuration
+            const configLoaded = await loadCompanyConfig();
+            if (!configLoaded) {
+                showWarning('Company configuration not found. Please contact your administrator.');
+                return;
+            }
+
             // Try to get user info from different sources
             if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
                 telegramUser = tg.initDataUnsafe.user;
                 console.log('User found:', telegramUser);
+                console.log('Company:', CONFIG.COMPANY_NAME);
                 displayUserInfo(telegramUser);
             } else {
                 console.error('No user data in initDataUnsafe');
@@ -349,6 +395,7 @@
             const container = document.getElementById('userInfoContainer');
             const username = user.username ? `@${user.username}` : 'No username';
             const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+            const companyInfo = CONFIG.COMPANY_NAME ? `<div class="user-info-item">Company: <strong>${CONFIG.COMPANY_NAME}</strong></div>` : '';
             
             container.innerHTML = `
                 <div class="user-info">
@@ -356,16 +403,20 @@
                     <div class="user-info-item">Name: ${fullName}</div>
                     <div class="user-info-item">Username: ${username}</div>
                     <div class="user-info-item">User ID: ${user.id}</div>
+                    ${companyInfo}
                 </div>
             `;
         }
 
         // Show warning if not opened via Telegram
-        function showWarning() {
+        function showWarning(customMessage = null) {
             const container = document.getElementById('userInfoContainer');
+            const message = customMessage || 'Telegram WebApp not available or not opened via bot';
+            
             container.innerHTML = `
                 <div class="warning-box">
                     <p><strong>⚠️ Debug Info:</strong></p>
+                    <p>${message}</p>
                     <p>Telegram WebApp available: ${!!window.Telegram?.WebApp}</p>
                     <p>Init data: ${window.Telegram?.WebApp?.initData ? 'Yes' : 'No'}</p>
                     <p><strong>Solution:</strong></p>
@@ -509,6 +560,12 @@
                 return;
             }
 
+            // Check if config is loaded
+            if (!CONFIG.OFFICE_LAT || !CONFIG.OFFICE_LON) {
+                showError('❌ Company configuration not loaded. Please try again.');
+                return;
+            }
+
             // Check if geolocation is supported
             if (!navigator.geolocation) {
                 showError('❌ Geolocation is not supported by your browser. Please use a modern browser like Chrome or Safari.');
@@ -572,6 +629,7 @@
                         await sendToTelegram(
                             CONFIG.ATTENDANCE_GROUP_ID,
                             `✅ <b>${userName}</b> Check in\n` +
+                            `Company: ${CONFIG.COMPANY_NAME}\n` +
                             `Time: ${timeFormatted}`
                         );
 
@@ -587,7 +645,7 @@
                         // Send notification about failed check-in attempt
                         await sendToTelegram(
                             CONFIG.NOTIFICATION_GROUP_ID,
-                            `⚠️ ${userIdentifier} is trying to check in ${distance.toFixed(1)}m away from office`
+                            `⚠️ ${userIdentifier} is trying to check in ${distance.toFixed(1)}m away from office (${CONFIG.COMPANY_NAME})`
                         );
 
                         tg.showAlert('❌ Check-in failed! You are too far from the office.');
@@ -633,6 +691,12 @@
             // Check if user info is available
             if (!telegramUser) {
                 showError('⚠️ Cannot identify user. Please open this page through your Telegram bot.');
+                return;
+            }
+
+            // Check if config is loaded
+            if (!CONFIG.OFFICE_LAT || !CONFIG.OFFICE_LON) {
+                showError('❌ Company configuration not loaded. Please try again.');
                 return;
             }
 
@@ -688,6 +752,7 @@
                         await sendToTelegram(
                             CONFIG.ATTENDANCE_GROUP_ID,
                             `⚠️ <b>${userName}</b> Check Out\n` +
+                            `Company: ${CONFIG.COMPANY_NAME}\n` +
                             `Time: ${timeFormatted}`
                         );
 
@@ -703,7 +768,7 @@
                         // Send notification about failed check-out attempt
                         await sendToTelegram(
                             CONFIG.NOTIFICATION_GROUP_ID,
-                            `⚠️ ${userIdentifier} is trying to check out ${distance.toFixed(1)}m away from office`
+                            `⚠️ ${userIdentifier} is trying to check out ${distance.toFixed(1)}m away from office (${CONFIG.COMPANY_NAME})`
                         );
 
                         tg.showAlert('❌ Check-out failed! You are too far from the office.');
