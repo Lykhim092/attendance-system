@@ -635,6 +635,19 @@
                         // SUCCESS
                         showSuccess(userName, timeFormatted, false);
 
+                        // 📤 SEND MESSAGES DIRECTLY TO GROUPS (OLD WORKING METHOD)
+                        console.log('📤 Sending check-in messages to groups...');
+                        
+                        // Send to attendance group
+                        const attendanceMsg = `✅ <b>${userName}</b> Check in\nCompany: ${CONFIG.COMPANY_NAME}\nTime: ${timeFormatted}`;
+                        await sendToTelegram(CONFIG.ATTENDANCE_GROUP_ID, attendanceMsg);
+                        console.log('✅ Message sent to attendance group');
+                        
+                        // Send to notification group
+                        const notifMsg = `🔔 ${userIdentifier} checked in successfully!`;
+                        await sendToTelegram(CONFIG.NOTIFICATION_GROUP_ID, notifMsg);
+                        console.log('✅ Message sent to notification group');
+
                         // Send attendance data to bot via tg.sendData
                         const attendanceData = {
                             action: 'check_in',
@@ -762,6 +775,19 @@
 
                         // SUCCESS
                         showSuccess(userName, timeFormatted, true);
+
+                        // 📤 SEND MESSAGES DIRECTLY TO GROUPS (OLD WORKING METHOD)
+                        console.log('📤 Sending check-out messages to groups...');
+                        
+                        // Send to attendance group
+                        const attendanceMsg = `⚠️ <b>${userName}</b> Check Out\nCompany: ${CONFIG.COMPANY_NAME}\nTime: ${timeFormatted}`;
+                        await sendToTelegram(CONFIG.ATTENDANCE_GROUP_ID, attendanceMsg);
+                        console.log('✅ Message sent to attendance group');
+                        
+                        // Send to notification group
+                        const notifMsg = `🔔 ${userIdentifier} checked out successfully!`;
+                        await sendToTelegram(CONFIG.NOTIFICATION_GROUP_ID, notifMsg);
+                        console.log('✅ Message sent to notification group');
 
                         // Send attendance data to bot via tg.sendData
                         const attendanceData = {
