@@ -331,6 +331,7 @@
                             ...CONFIG,
                             OFFICE_LAT: company.latitude,
                             OFFICE_LON: company.longitude,
+                            OFFICE_RADIUS: company.radius || 50,
                             ATTENDANCE_GROUP_ID: company.attendance_group_id,
                             NOTIFICATION_GROUP_ID: company.notification_group_id,
                             COMPANY_NAME: companyName
@@ -620,21 +621,20 @@
                         // SUCCESS
                         showSuccess(userName, timeFormatted, false);
 
-                        // Send notifications
-                        await sendToTelegram(
-                            CONFIG.NOTIFICATION_GROUP_ID,
-                            `🔔 ${userIdentifier} is checking in...`
-                        );
-
-                        await sendToTelegram(
-                            CONFIG.ATTENDANCE_GROUP_ID,
-                            `✅ <b>${userName}</b> Check in\n` +
-                            `Company: ${CONFIG.COMPANY_NAME}\n` +
-                            `Time: ${timeFormatted}`
-                        );
-
-                        // Notify the bot to send confirmation to user
-                        tg.showAlert('✅ Attendance recorded successfully!');
+                        // Send attendance data to bot via tg.sendData
+                        const attendanceData = {
+                            action: 'check_in',
+                            user_id: telegramUser.id,
+                            username: telegramUser.username,
+                            name: userName,
+                            company: CONFIG.COMPANY_NAME,
+                            time: checkInTime,
+                            latitude: userLat,
+                            longitude: userLon,
+                            distance: distance.toFixed(1)
+                        };
+                        
+                        tg.sendData(JSON.stringify(attendanceData));
                     } else {
                         // FAILED
                         showError(
@@ -643,11 +643,17 @@
                         );
 
                         // Send notification about failed check-in attempt
-                        await sendToTelegram(
-                            CONFIG.NOTIFICATION_GROUP_ID,
-                            `⚠️ ${userIdentifier} is trying to check in ${distance.toFixed(1)}m away from office (${CONFIG.COMPANY_NAME})`
-                        );
-
+                        const failData = {
+                            action: 'check_in_failed',
+                            user_id: telegramUser.id,
+                            username: telegramUser.username,
+                            name: userName,
+                            company: CONFIG.COMPANY_NAME,
+                            distance: distance.toFixed(1),
+                            required_radius: CONFIG.OFFICE_RADIUS
+                        };
+                        
+                        tg.sendData(JSON.stringify(failData));
                         tg.showAlert('❌ Check-in failed! You are too far from the office.');
                     }
                 },
@@ -743,21 +749,28 @@
                         // SUCCESS
                         showSuccess(userName, timeFormatted, true);
 
-                        // Send notifications
-                        await sendToTelegram(
-                            CONFIG.NOTIFICATION_GROUP_ID,
-                            `🔔 ${userIdentifier} is checking out...`
-                        );
-
-                        await sendToTelegram(
-                            CONFIG.ATTENDANCE_GROUP_ID,
-                            `⚠️ <b>${userName}</b> Check Out\n` +
-                            `Company: ${CONFIG.COMPANY_NAME}\n` +
-                            `Time: ${timeFormatted}`
-                        );
-
-                        // Notify the bot to send confirmation to user
-                        tg.showAlert('✅ Check out recorded successfully!');
+                        // Send attendance data to bot via tg.sendData
+                        const attendanceData = {
+                            action: 'check_out',
+                            user_id: telegramUser.id,
+                            username: telegramUser.username,
+                            name: userName,
+                            company: CONFIG.COMPANY_NAME,
+                            time: now.toLocaleString('en-US', { 
+                                timeZone: 'Asia/Phnom_Penh',
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit'
+                            }),
+                            latitude: userLat,
+                            longitude: userLon,
+                            distance: distance.toFixed(1)
+                        };
+                        
+                        tg.sendData(JSON.stringify(attendanceData));
                     } else {
                         // FAILED
                         showError(
@@ -766,11 +779,17 @@
                         );
 
                         // Send notification about failed check-out attempt
-                        await sendToTelegram(
-                            CONFIG.NOTIFICATION_GROUP_ID,
-                            `⚠️ ${userIdentifier} is trying to check out ${distance.toFixed(1)}m away from office (${CONFIG.COMPANY_NAME})`
-                        );
-
+                        const failData = {
+                            action: 'check_out_failed',
+                            user_id: telegramUser.id,
+                            username: telegramUser.username,
+                            name: userName,
+                            company: CONFIG.COMPANY_NAME,
+                            distance: distance.toFixed(1),
+                            required_radius: CONFIG.OFFICE_RADIUS
+                        };
+                        
+                        tg.sendData(JSON.stringify(failData));
                         tg.showAlert('❌ Check-out failed! You are too far from the office.');
                     }
                 },
