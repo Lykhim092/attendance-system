@@ -305,23 +305,37 @@
 
         let CONFIG = { ...DEFAULT_CONFIG };
 
-        // Parse URL parameters to get company name
-        function getCompanyFromURL() {
-            const params = new URLSearchParams(window.location.search);
-            return params.get('company');
-        }
-
-        // Fetch company data from server
+        // Fetch company data from URL parameters
         async function loadCompanyConfig() {
-            const companyName = getCompanyFromURL();
+            const params = new URLSearchParams(window.location.search);
+            const companyName = params.get('company');
+            
             if (!companyName) {
                 console.error('No company specified in URL');
                 return false;
             }
 
             try {
-                // For now, we'll store company config in localStorage or pass it through the bot
-                // In a real scenario, you'd fetch this from your backend
+                // Try to get from URL parameters first
+                const lat = params.get('lat');
+                const lon = params.get('lon');
+                const radius = params.get('radius');
+                
+                if (lat && lon) {
+                    CONFIG = {
+                        ...CONFIG,
+                        OFFICE_LAT: parseFloat(lat),
+                        OFFICE_LON: parseFloat(lon),
+                        OFFICE_RADIUS: parseInt(radius) || 50,
+                        COMPANY_NAME: companyName
+                    };
+                    console.log('✅ Config loaded from URL parameters');
+                    console.log('Company:', CONFIG.COMPANY_NAME);
+                    console.log('Radius:', CONFIG.OFFICE_RADIUS);
+                    return true;
+                }
+                
+                // Fallback to localStorage if needed
                 const storedCompanies = localStorage.getItem('companies_config');
                 if (storedCompanies) {
                     const companies = JSON.parse(storedCompanies);
