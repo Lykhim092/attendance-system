@@ -59,20 +59,16 @@
             margin-bottom: 10px;
         }
 
+        .company-name {
+            font-size: 18px;
+            color: #4f46e5;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
         .subtitle {
             color: #6b7280;
             font-size: 16px;
-        }
-
-        .company-badge {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 12px 20px;
-            border-radius: 12px;
-            text-align: center;
-            margin-bottom: 20px;
-            font-weight: 600;
-            font-size: 18px;
         }
 
         .user-info {
@@ -127,6 +123,22 @@
             transform: none;
         }
 
+        .btn-secondary {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        .btn-secondary:hover {
+            background: #059669;
+        }
+
         .btn-warning {
             background: #f59e0b;
             color: white;
@@ -145,22 +157,6 @@
             background: #d97706;
             transform: translateY(-2px);
             box-shadow: 0 6px 12px rgba(245, 158, 11, 0.4);
-        }
-
-        .btn-secondary {
-            background: #10b981;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            margin-top: 20px;
-        }
-
-        .btn-secondary:hover {
-            background: #059669;
         }
 
         .btn-error {
@@ -224,6 +220,25 @@
             font-weight: 600;
         }
 
+        .info-box {
+            background: #f9fafb;
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 20px;
+        }
+
+        .info-title {
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 10px;
+        }
+
+        .info-item {
+            font-size: 14px;
+            color: #6b7280;
+            margin: 5px 0;
+        }
+
         .spinner {
             border: 4px solid #f3f4f6;
             border-top: 4px solid #4f46e5;
@@ -270,12 +285,10 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
             </div>
+            <div class="company-name" id="companyName">Loading...</div>
             <h1>Attendance Check-In</h1>
             <p class="subtitle">Verify your location to check in</p>
         </div>
-
-        <!-- Company Badge -->
-        <div id="companyBadge"></div>
 
         <!-- User Info Display -->
         <div id="userInfoContainer"></div>
@@ -292,92 +305,118 @@
     </div>
 
     <script>
-        // Bot configuration
-        const BOT_TOKEN = '8353969532:AAGw5-cskfHTRsj3kyl7vZU04DxHWU2S3qk';
-        
-        // Company data (will be loaded from URL parameters)
-        let companyConfig = null;
-        
+        // ===== CONFIGURATION =====
+        let CONFIG = {
+            OFFICE_LAT: 11.595302,
+            OFFICE_LON: 104.930022,
+            OFFICE_RADIUS: 50,
+            BOT_TOKEN: '8353969532:AAGw5-cskfHTRsj3kyl7vZU04DxHWU2S3qk',
+            ATTENDANCE_GROUP_ID: -4753476631,
+            NOTIFICATION_GROUP_ID: -5289434770,
+            COMPANY_NAME: 'Default Company',
+            API_URL: 'http://localhost:5000'
+        };
+
         // Initialize Telegram Web App
         let tg = window.Telegram?.WebApp;
         let telegramUser = null;
 
-        // Load company configuration from bot
-        async function loadCompanyConfig(companyName) {
+        // Get parameters from URL
+        function getURLParams() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return {
+                company: urlParams.get('company'),
+                userid: urlParams.get('userid')
+            };
+        }
+
+        // Fetch company settings from API
+        async function loadCompanySettings() {
+            const params = getURLParams();
+            const companyName = params.company;
+            const userId = params.userid;
+            
+            if (!companyName || !userId) {
+                console.error('Missing company name or user ID in URL');
+                showWarning('Missing required parameters. Please use /start command.');
+                return false;
+            }
+
             try {
-                // In production, this would fetch from your backend
-                // For now, we'll fetch from a JSON endpoint or pass via URL
-                const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        chat_id: telegramUser.id,
-                        text: `/getcompanyconfig ${companyName}`
-                    })
-                });
+                const response = await fetch(`${CONFIG.API_URL}/api/company/${companyName}`);
                 
-                // Note: In practice, you'd need a proper API endpoint
-                // For now, we'll use default values and the bot will handle validation
-                return {
-                    name: companyName,
-                    latitude: 11.595302,
-                    longitude: 104.930022,
-                    radius: 50,
-                    attendance_group_id: -4753476631,
-                    notification_group_id: -5289434770
-                };
+                if (!response.ok) {
+                    console.error('Company not found:', companyName);
+                    showWarning('Company not found. Please try again.');
+                    return false;
+                }
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    const company = data.company;
+                    CONFIG.OFFICE_LAT = company.latitude;
+                    CONFIG.OFFICE_LON = company.longitude;
+                    CONFIG.OFFICE_RADIUS = company.radius;
+                    CONFIG.ATTENDANCE_GROUP_ID = company.attendance_group_id;
+                    CONFIG.NOTIFICATION_GROUP_ID = company.notification_group_id;
+                    CONFIG.COMPANY_NAME = company.name;
+                    
+                    document.getElementById('companyName').textContent = company.name;
+                    console.log('✅ Company settings loaded:', company.name);
+                    return true;
+                } else {
+                    console.error('Failed to load company settings');
+                    showWarning('Failed to load company settings.');
+                    return false;
+                }
             } catch (error) {
-                console.error('Failed to load company config:', error);
-                return null;
+                console.error('Error loading company settings:', error);
+                showWarning('Unable to connect to server. Please check your connection.');
+                return false;
             }
         }
 
         // Wait for Telegram WebApp to fully initialize
-        async function initTelegramApp() {
+        function initTelegramApp() {
             if (!tg) {
                 console.error('Telegram WebApp not available');
-                showWarning();
+                showWarning('Please open this page through the Telegram bot.');
                 return;
             }
 
             console.log('Telegram WebApp detected');
             tg.expand();
 
-            // Get user info
             if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
                 telegramUser = tg.initDataUnsafe.user;
                 console.log('User found:', telegramUser);
-                
-                // Get company name from URL parameter
-                const urlParams = new URLSearchParams(window.location.search);
-                const companyName = urlParams.get('company');
-                
-                if (companyName) {
-                    // Load company configuration
-                    companyConfig = await loadCompanyConfig(companyName);
-                    
-                    // Display company badge
-                    document.getElementById('companyBadge').innerHTML = `
-                        <div class="company-badge">
-                            🏢 ${companyName}
-                        </div>
-                    `;
-                    
-                    displayUserInfo(telegramUser);
-                } else {
-                    showError('No company specified. Please register first using /start');
-                }
+                displayUserInfo(telegramUser);
             } else {
                 console.error('No user data in initDataUnsafe');
-                showWarning();
+                showWarning('Cannot identify user. Please open this page through the Telegram bot.');
             }
         }
 
         // Initialize when page loads
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initTelegramApp);
+            document.addEventListener('DOMContentLoaded', async () => {
+                const loaded = await loadCompanySettings();
+                if (!loaded) {
+                    document.getElementById('checkInBtn').disabled = true;
+                    document.getElementById('checkOutBtn').disabled = true;
+                }
+                initTelegramApp();
+            });
         } else {
-            initTelegramApp();
+            (async () => {
+                const loaded = await loadCompanySettings();
+                if (!loaded) {
+                    document.getElementById('checkInBtn').disabled = true;
+                    document.getElementById('checkOutBtn').disabled = true;
+                }
+                initTelegramApp();
+            })();
         }
 
         // Display user info
@@ -396,26 +435,34 @@
             `;
         }
 
-        // Show warning if not opened via Telegram
-        function showWarning() {
+        function showWarning(message = null) {
             const container = document.getElementById('userInfoContainer');
+            const warningMsg = message || 'Cannot connect to server. Please try again.';
             container.innerHTML = `
                 <div class="warning-box">
-                    <p><strong>⚠️ Not Opened via Telegram</strong></p>
-                    <p>Please open this through your Telegram bot.</p>
-                    <p>1. Go to your bot chat</p>
-                    <p>2. Send /start</p>
-                    <p>3. Click the Check In button</p>
+                    <p><strong>⚠️ Error:</strong></p>
+                    <p>${warningMsg}</p>
+                    <p><strong>Solution:</strong></p>
+                    <p>1. Make sure you opened this via the bot button</p>
+                    <p>2. Try closing and reopening the bot</p>
+                    <p>3. Contact admin if issue persists</p>
                 </div>
             `;
             
-            document.getElementById('checkInBtn').disabled = true;
-            document.getElementById('checkOutBtn').disabled = true;
+            const checkInBtn = document.getElementById('checkInBtn');
+            const checkOutBtn = document.getElementById('checkOutBtn');
+            if (checkInBtn) {
+                checkInBtn.disabled = true;
+                checkInBtn.style.background = '#9ca3af';
+            }
+            if (checkOutBtn) {
+                checkOutBtn.disabled = true;
+                checkOutBtn.style.background = '#9ca3af';
+            }
         }
 
-        // Calculate distance between two coordinates
         function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371000; // Earth's radius in meters
+            const R = 6371000;
             const phi1 = lat1 * Math.PI / 180;
             const phi2 = lat2 * Math.PI / 180;
             const deltaPhi = (lat2 - lat1) * Math.PI / 180;
@@ -429,12 +476,13 @@
             return R * c;
         }
 
-        // Send message to Telegram
         async function sendToTelegram(chatId, text) {
             try {
-                const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+                const response = await fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/sendMessage`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
                     body: JSON.stringify({
                         chat_id: chatId,
                         text: text,
@@ -448,7 +496,6 @@
             }
         }
 
-        // Show loading state
         function showLoading(message) {
             const container = document.getElementById('statusContainer');
             container.innerHTML = `
@@ -460,7 +507,6 @@
             `;
         }
 
-        // Show success state
         function showSuccess(userName, timeFormatted, isCheckOut = false) {
             const container = document.getElementById('statusContainer');
             const action = isCheckOut ? 'Check Out' : 'Check in';
@@ -478,7 +524,6 @@
             `;
         }
 
-        // Show error state
         function showError(message, distance = null) {
             const container = document.getElementById('statusContainer');
             const distanceHtml = distance !== null ? 
@@ -501,7 +546,6 @@
             `;
         }
 
-        // Reset form
         function resetForm() {
             const container = document.getElementById('statusContainer');
             container.innerHTML = `
@@ -515,19 +559,38 @@
             `;
         }
 
-        // Main check-in function
+        async function checkLocationPermission() {
+            if (!navigator.permissions) {
+                return 'prompt';
+            }
+
+            try {
+                const result = await navigator.permissions.query({ name: 'geolocation' });
+                return result.state;
+            } catch (error) {
+                return 'prompt';
+            }
+        }
+
         async function handleCheckIn() {
-            if (!telegramUser || !companyConfig) {
-                showError('⚠️ Cannot identify user or company. Please open through Telegram bot.');
+            if (!telegramUser) {
+                showError('⚠️ Cannot identify user. Please open this page through your Telegram bot.');
                 return;
             }
 
             if (!navigator.geolocation) {
-                showError('❌ Geolocation not supported by your browser.');
+                showError('❌ Geolocation is not supported by your browser. Please use a modern browser like Chrome or Safari.');
                 return;
             }
 
-            showLoading('Getting your location...');
+            const permissionStatus = await checkLocationPermission();
+            
+            if (permissionStatus === 'denied') {
+                showError('❌ Location permission denied. Please enable location access in your browser settings and reload this page.');
+                return;
+            }
+
+            showLoading('Requesting location permission...');
 
             navigator.geolocation.getCurrentPosition(
                 async (position) => {
@@ -536,60 +599,73 @@
 
                     const distance = calculateDistance(
                         userLat, userLon,
-                        companyConfig.latitude, companyConfig.longitude
+                        CONFIG.OFFICE_LAT, CONFIG.OFFICE_LON
                     );
 
                     const now = new Date();
-                    const timeFormatted = now.toLocaleString('en-US', { 
-                        timeZone: 'Asia/Phnom_Penh',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: true
-                    });
-
                     const userName = `${telegramUser.first_name || ''} ${telegramUser.last_name || ''}`.trim();
                     const userIdentifier = telegramUser.username ? `@${telegramUser.username}` : userName;
 
-                    if (distance <= companyConfig.radius) {
+                    if (distance <= CONFIG.OFFICE_RADIUS) {
+                        const timeFormatted = now.toLocaleString('en-US', { 
+                            timeZone: 'Asia/Phnom_Penh',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true
+                        });
+
                         showSuccess(userName, timeFormatted, false);
 
                         await sendToTelegram(
-                            companyConfig.notification_group_id,
-                            `📍 ${userIdentifier} is checking in...`
+                            CONFIG.NOTIFICATION_GROUP_ID,
+                            `🔔 [${CONFIG.COMPANY_NAME}] ${userIdentifier} is checking in...`
                         );
 
                         await sendToTelegram(
-                            companyConfig.attendance_group_id,
-                            `✅ <b>${userName}</b> Check in\n` +
-                            `🏢 Company: ${companyConfig.name}\n` +
+                            CONFIG.ATTENDANCE_GROUP_ID,
+                            `✅ <b>[${CONFIG.COMPANY_NAME}] ${userName}</b> Check in\n` +
                             `Time: ${timeFormatted}`
                         );
 
                         tg.showAlert('✅ Attendance recorded successfully!');
                     } else {
                         showError(
-                            `You must be within ${companyConfig.radius}m to check in.`,
+                            `You must be within ${CONFIG.OFFICE_RADIUS}m to check in.`,
                             distance
                         );
 
                         await sendToTelegram(
-                            companyConfig.notification_group_id,
-                            `⚠️ ${userIdentifier} tried to check in ${distance.toFixed(1)}m away from office`
+                            CONFIG.NOTIFICATION_GROUP_ID,
+                            `⚠️ [${CONFIG.COMPANY_NAME}] ${userIdentifier} is trying to check in ${distance.toFixed(1)}m away from office`
                         );
+
+                        tg.showAlert('❌ Check-in failed! You are too far from the office.');
                     }
                 },
                 (error) => {
+                    console.error('Geolocation error:', error);
                     let errorMsg = '❌ Unable to get your location. ';
+                    
                     switch(error.code) {
                         case 1:
-                            errorMsg = '❌ Location permission denied.\n\nPlease enable location access.';
+                            errorMsg = '❌ Location permission denied.\n\n';
+                            errorMsg += '📱 To enable location:\n';
+                            errorMsg += '• iPhone: Settings → Safari → Location → Allow\n';
+                            errorMsg += '• Android: Settings → Apps → Browser → Permissions → Location';
                             break;
                         case 2:
-                            errorMsg = '❌ Location unavailable.\n\nCheck GPS and internet connection.';
+                            errorMsg = '❌ Location information unavailable.\n\n';
+                            errorMsg += 'Please make sure:\n';
+                            errorMsg += '• GPS is turned on\n';
+                            errorMsg += '• You have internet connection\n';
+                            errorMsg += '• You are not in airplane mode';
                             break;
                         case 3:
-                            errorMsg = '❌ Location request timed out.\n\nPlease try again.';
+                            errorMsg = '❌ Location request timed out.\n\n';
+                            errorMsg += 'Please try again. Make sure you have a good GPS signal.';
                             break;
+                        default:
+                            errorMsg += 'Error code: ' + error.code + '\n' + error.message;
                     }
                     showError(errorMsg);
                 },
@@ -601,19 +677,26 @@
             );
         }
 
-        // Check out function
         async function handleCheckOut() {
-            if (!telegramUser || !companyConfig) {
-                showError('⚠️ Cannot identify user or company. Please open through Telegram bot.');
+            // ...existing code (same as handleCheckIn but with isCheckOut = true)...
+            if (!telegramUser) {
+                showError('⚠️ Cannot identify user. Please open this page through your Telegram bot.');
                 return;
             }
 
             if (!navigator.geolocation) {
-                showError('❌ Geolocation not supported by your browser.');
+                showError('❌ Geolocation is not supported by your browser. Please use a modern browser like Chrome or Safari.');
                 return;
             }
 
-            showLoading('Getting your location...');
+            const permissionStatus = await checkLocationPermission();
+            
+            if (permissionStatus === 'denied') {
+                showError('❌ Location permission denied. Please enable location access in your browser settings and reload this page.');
+                return;
+            }
+
+            showLoading('Requesting location permission...');
 
             navigator.geolocation.getCurrentPosition(
                 async (position) => {
@@ -622,60 +705,73 @@
 
                     const distance = calculateDistance(
                         userLat, userLon,
-                        companyConfig.latitude, companyConfig.longitude
+                        CONFIG.OFFICE_LAT, CONFIG.OFFICE_LON
                     );
 
                     const now = new Date();
-                    const timeFormatted = now.toLocaleString('en-US', { 
-                        timeZone: 'Asia/Phnom_Penh',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: true
-                    });
-
                     const userName = `${telegramUser.first_name || ''} ${telegramUser.last_name || ''}`.trim();
                     const userIdentifier = telegramUser.username ? `@${telegramUser.username}` : userName;
 
-                    if (distance <= companyConfig.radius) {
+                    if (distance <= CONFIG.OFFICE_RADIUS) {
+                        const timeFormatted = now.toLocaleString('en-US', { 
+                            timeZone: 'Asia/Phnom_Penh',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true
+                        });
+
                         showSuccess(userName, timeFormatted, true);
 
                         await sendToTelegram(
-                            companyConfig.notification_group_id,
-                            `🚪 ${userIdentifier} is checking out...`
+                            CONFIG.NOTIFICATION_GROUP_ID,
+                            `🔔 [${CONFIG.COMPANY_NAME}] ${userIdentifier} is checking out...`
                         );
 
                         await sendToTelegram(
-                            companyConfig.attendance_group_id,
-                            `⚠️ <b>${userName}</b> Check Out\n` +
-                            `🏢 Company: ${companyConfig.name}\n` +
+                            CONFIG.ATTENDANCE_GROUP_ID,
+                            `⚠️ <b>[${CONFIG.COMPANY_NAME}] ${userName}</b> Check Out\n` +
                             `Time: ${timeFormatted}`
                         );
 
                         tg.showAlert('✅ Check out recorded successfully!');
                     } else {
                         showError(
-                            `You must be within ${companyConfig.radius}m to check out.`,
+                            `You must be within ${CONFIG.OFFICE_RADIUS}m to check out.`,
                             distance
                         );
 
                         await sendToTelegram(
-                            companyConfig.notification_group_id,
-                            `⚠️ ${userIdentifier} tried to check out ${distance.toFixed(1)}m away from office`
+                            CONFIG.NOTIFICATION_GROUP_ID,
+                            `⚠️ [${CONFIG.COMPANY_NAME}] ${userIdentifier} is trying to check out ${distance.toFixed(1)}m away from office`
                         );
+
+                        tg.showAlert('❌ Check-out failed! You are too far from the office.');
                     }
                 },
                 (error) => {
+                    console.error('Geolocation error:', error);
                     let errorMsg = '❌ Unable to get your location. ';
+                    
                     switch(error.code) {
                         case 1:
-                            errorMsg = '❌ Location permission denied.\n\nPlease enable location access.';
+                            errorMsg = '❌ Location permission denied.\n\n';
+                            errorMsg += '📱 To enable location:\n';
+                            errorMsg += '• iPhone: Settings → Safari → Location → Allow\n';
+                            errorMsg += '• Android: Settings → Apps → Browser → Permissions → Location';
                             break;
                         case 2:
-                            errorMsg = '❌ Location unavailable.\n\nCheck GPS and internet connection.';
+                            errorMsg = '❌ Location information unavailable.\n\n';
+                            errorMsg += 'Please make sure:\n';
+                            errorMsg += '• GPS is turned on\n';
+                            errorMsg += '• You have internet connection\n';
+                            errorMsg += '• You are not in airplane mode';
                             break;
                         case 3:
-                            errorMsg = '❌ Location request timed out.\n\nPlease try again.';
+                            errorMsg = '❌ Location request timed out.\n\n';
+                            errorMsg += 'Please try again. Make sure you have a good GPS signal.';
                             break;
+                        default:
+                            errorMsg += 'Error code: ' + error.code + '\n' + error.message;
                     }
                     showError(errorMsg);
                 },
