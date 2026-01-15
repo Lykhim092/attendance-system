@@ -298,10 +298,20 @@
 
     <script>
         // ===== CONFIGURATION =====
+        // Get URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const companyName = urlParams.get('company') || 'Unknown';
+        const companyLat = parseFloat(urlParams.get('lat')) || 11.595302;
+        const companyLon = parseFloat(urlParams.get('lon')) || 104.930022;
+        const companyRadius = parseInt(urlParams.get('radius')) || 50;
+        const userId = urlParams.get('user_id') || 'unknown';
+        
         let CONFIG = {
-            OFFICE_LAT: 11.595302,
-            OFFICE_LON: 104.930022,
-            OFFICE_RADIUS: 50, // meters (default)
+            COMPANY_NAME: companyName,
+            OFFICE_LAT: companyLat,
+            OFFICE_LON: companyLon,
+            OFFICE_RADIUS: companyRadius,
+            USER_ID: userId,
             BOT_TOKEN: '8353969532:AAGw5-cskfHTRsj3kyl7vZU04DxHWU2S3qk',
             ATTENDANCE_GROUP_ID: -4753476631,
             NOTIFICATION_GROUP_ID: -5289434770
@@ -310,7 +320,6 @@
         // Initialize Telegram Web App
         let tg = window.Telegram?.WebApp;
         let telegramUser = null;
-        let userCompanyConfig = null;
 
         // Wait for Telegram WebApp to fully initialize
         async function initTelegramApp() {
@@ -321,8 +330,9 @@
             }
 
             console.log('Telegram WebApp detected');
-            console.log('Init data:', tg.initData);
-            console.log('Init data unsafe:', tg.initDataUnsafe);
+            console.log('Company:', CONFIG.COMPANY_NAME);
+            console.log('Location:', CONFIG.OFFICE_LAT, CONFIG.OFFICE_LON);
+            console.log('Radius:', CONFIG.OFFICE_RADIUS);
 
             // Expand the web app to full height
             tg.expand();
@@ -331,53 +341,11 @@
             if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
                 telegramUser = tg.initDataUnsafe.user;
                 console.log('User found:', telegramUser);
-                
-                // Try to fetch company config from the bot's API
-                await fetchUserCompanyConfig();
                 displayUserInfo(telegramUser);
             } else {
                 console.error('No user data in initDataUnsafe');
                 showWarning();
             }
-        }
-
-        // Fetch user's company configuration from bot
-        async function fetchUserCompanyConfig() {
-            try {
-                // Try to get company data from local storage or bot API
-                // For now, we'll rely on the bot to handle this via web_app_data
-                const storedConfig = localStorage.getItem('user_company_config');
-                if (storedConfig) {
-                    userCompanyConfig = JSON.parse(storedConfig);
-                    console.log('Loaded company config from storage:', userCompanyConfig);
-                    
-                    // Update CONFIG with user's company settings
-                    if (userCompanyConfig.latitude) CONFIG.OFFICE_LAT = userCompanyConfig.latitude;
-                    if (userCompanyConfig.longitude) CONFIG.OFFICE_LON = userCompanyConfig.longitude;
-                    if (userCompanyConfig.radius) CONFIG.OFFICE_RADIUS = userCompanyConfig.radius;
-                    if (userCompanyConfig.attendance_group_id) CONFIG.ATTENDANCE_GROUP_ID = userCompanyConfig.attendance_group_id;
-                    if (userCompanyConfig.notification_group_id) CONFIG.NOTIFICATION_GROUP_ID = userCompanyConfig.notification_group_id;
-                    
-                    console.log('Updated CONFIG:', CONFIG);
-                }
-            } catch (error) {
-                console.error('Error fetching company config:', error);
-            }
-        }
-
-        // Store company config in local storage when set
-        function storeCompanyConfig(config) {
-            localStorage.setItem('user_company_config', JSON.stringify(config));
-            userCompanyConfig = config;
-            
-            // Update CONFIG with new settings
-            if (config.latitude) CONFIG.OFFICE_LAT = config.latitude;
-            if (config.longitude) CONFIG.OFFICE_LON = config.longitude;
-            if (config.radius) CONFIG.OFFICE_RADIUS = config.radius;
-            if (config.attendance_group_id) CONFIG.ATTENDANCE_GROUP_ID = config.attendance_group_id;
-            if (config.notification_group_id) CONFIG.NOTIFICATION_GROUP_ID = config.notification_group_id;
-            
-            console.log('Stored and updated company config:', config);
         }
 
         // Initialize when page loads
@@ -387,16 +355,11 @@
             initTelegramApp();
         }
 
-        // Display user info
+        // Display user info with company name
         function displayUserInfo(user) {
             const container = document.getElementById('userInfoContainer');
             const username = user.username ? `@${user.username}` : 'No username';
             const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
-            
-            let companyHtml = '';
-            if (userCompanyConfig) {
-                companyHtml = `<div class="user-info-item">Company: ${userCompanyConfig.name}</div>`;
-            }
             
             container.innerHTML = `
                 <div class="user-info">
@@ -404,7 +367,7 @@
                     <div class="user-info-item">Name: ${fullName}</div>
                     <div class="user-info-item">Username: ${username}</div>
                     <div class="user-info-item">User ID: ${user.id}</div>
-                    ${companyHtml}
+                    <div class="user-info-item">🏢 Company: <strong>${CONFIG.COMPANY_NAME}</strong></div>
                 </div>
             `;
         }
@@ -417,6 +380,7 @@
                     <p><strong>⚠️ Debug Info:</strong></p>
                     <p>Telegram WebApp available: ${!!window.Telegram?.WebApp}</p>
                     <p>Init data: ${window.Telegram?.WebApp?.initData ? 'Yes' : 'No'}</p>
+                    <p>Company: ${CONFIG.COMPANY_NAME}</p>
                     <p><strong>Solution:</strong></p>
                     <p>1. Make sure you opened this via the bot button</p>
                     <p>2. Try closing and reopening the bot</p>
@@ -621,7 +585,7 @@
                             latitude: userLat,
                             longitude: userLon,
                             distance: distance,
-                            company_name: userCompanyConfig?.name || 'Unknown'
+                            company_name: CONFIG.COMPANY_NAME
                         };
 
                         if (tg.sendData) {
@@ -735,7 +699,7 @@
                             latitude: userLat,
                             longitude: userLon,
                             distance: distance,
-                            company_name: userCompanyConfig?.name || 'Unknown'
+                            company_name: CONFIG.COMPANY_NAME
                         };
 
                         if (tg.sendData) {
